@@ -8,7 +8,15 @@ import json
 
 
 def parse_article(link):
-    soup = BeautifulSoup(requests.get(link).content, features='lxml')
+    """
+    Parses an SWI article
+    :param link: A valid link to a SWI article
+    :return: Parsed text, translator, comments and category
+    """
+    try:
+        soup = BeautifulSoup(requests.get(link).content, features='lxml')
+    except:
+        return None
     article_body = soup.find('div', {"class": "article-body"})
     if article_body is None:
         return None
@@ -24,6 +32,12 @@ def parse_article(link):
 
 
 def parse_comments(id, lang):
+    """
+    Parses the comments for an SWI article
+    :param id: The identifier for the article.
+    :param lang: The language code for the article.
+    :return: A list of comments for the article.
+    """
     language_map = {
         "German": ("ger", 40000532),
         "English": ("eng", 40000108),
@@ -38,8 +52,10 @@ def parse_comments(id, lang):
         }
 
     lstring, lcode = language_map[lang]
-
-    comment_response = requests.get(f"https://www.swissinfo.ch/elastic/social/{lstring}/comments?teasable=contentbean:{id}&cmnavigation=contentbean:{lcode}&numberOfComments=100")
+    try:
+        comment_response = requests.get(f"https://www.swissinfo.ch/elastic/social/{lstring}/comments?teasable=contentbean:{id}&cmnavigation=contentbean:{lcode}&numberOfComments=100")
+    except:
+        return []
     soup = BeautifulSoup(comment_response.content, features='lxml')
     return [x.text for x in soup.find_all("div", attrs={"class": "user-comment"})]
 
@@ -51,7 +67,7 @@ def parse_comments(id, lang):
 # articles = rss_dict['rss']['channel']['item']
 
 article_cid_matcher = re.compile("https?://www\.swissinfo\.ch/.*?cid=(?P<articleid>\d+)")
-article_id_matcher = re.compile("https?://www.swissinfo.ch/.*?/(?P<articleid>\d+)")
+article_id_matcher = re.compile("https?://www\.swissinfo\.ch/.*?/(?P<articleid>\d+)")
 
 with open("article_list.json", 'r', encoding="UTF-8") as articles_json:
     articles = json.load(articles_json)
@@ -66,13 +82,15 @@ for idx, article in enumerate(tqdm(articles[::-1])):
 
     if idx < len(output_articles):
         continue
-
     article_cid_match = article_cid_matcher.match(article["link"])
 
     if article_cid_match is None:
         continue
 
-    soup = BeautifulSoup(requests.get(article["link"]).content, features='lxml')
+    try:
+        soup = BeautifulSoup(requests.get(article["link"]).content, features='lxml')
+    except:
+        continue
 
     other_lang_nodes = soup.find(name="div", attrs={"class": "lngLink"})
     other_lang_nodes = other_lang_nodes.findChildren("ul")[0].findChildren("li") if other_lang_nodes else []
@@ -101,18 +119,21 @@ for idx, article in enumerate(tqdm(articles[::-1])):
         else:
             article['content'][language]['id'] = article_id_match.group("articleid")
 
+
+        article['content'][language]['link'] = link
         article['content'][language]['text'] = text
         article['content'][language]['translator'] = translator
         article['content'][language]['comments'] = parse_comments(article['content'][language]['id'], language)
         article['content'][language]['cateogry'] = category
 
-    globalCategory = article['content']['English']['cateogry']
-    if len(globalCategory) == 0:
-        article['category'] = 'NA'
-    else:
-        article['category'] = globalCategory
+    if 'English' in article['content']:
+        globalCategory = article['content']['English']['cateogry']
+        if len(globalCategory) == 0:
+            article['category'] = 'NA'
+        else:
+            article['category'] = globalCategory
 
-    output_articles.append(article)
+        output_articles.append(article)
 
-    with open("articles.json", "w", encoding="UTF-8") as articles_json:
-        json.dump(output_articles, articles_json, ensure_ascii=False, indent=2)
+        with open("articles.json", "w", encoding="UTF-8") as articles_json:
+            json.dump(output_articles, articles_json, ensure_ascii=False, indent=2)
