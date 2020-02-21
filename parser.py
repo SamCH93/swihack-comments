@@ -106,7 +106,11 @@ for idx, article in enumerate(tqdm(articles[::-1])):
         article['content'][language]['comments'] = parse_comments(article['content'][language]['id'], language)
         article['content'][language]['cateogry'] = category
 
-    article['category'] = article['content']['English']['cateogry']
+    globalCategory = article['content']['English']['cateogry']
+    if len(globalCategory) == 0:
+        article['category'] = 'NA'
+    else:
+        article['category'] = globalCategory
 
     output_articles.append(article)
 
