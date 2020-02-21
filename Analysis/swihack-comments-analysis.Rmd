@@ -1,11 +1,11 @@
 ---
-title: 'Multilingual comments comparison'
+title: 'Multilingual comments comparison - Analysis'
 author: 'Samuel Pawel'
 date: '21.02.2020'
 output: html_document
 ---
 
-<!-- knitrs setup -->
+<!-- setup -->
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, 
                       cache = FALSE,
@@ -16,11 +16,75 @@ knitr::opts_chunk$set(echo = TRUE,
 ```
 
 
+### Libraries
 ```{r}
+library(knitr)
 library(tidyverse)
-library(quanteda)
-library(readtext)
 library(lubridate)
 library(stringr)
+library(jsonlite)
+library(ggbeeswarm)
+```
 
+
+### Data
+```{r}
+articles <- read_json("../articles.json")
+languages <- c("German", "Spanish", "French", "Italian", "Japanese",
+               "Portugese", "Chinese", "English", "Russian", "Arabic",
+               "Chinese")
+
+articles_summaries <- articles %>% 
+  map(.f = function(article) {
+    
+    comments <- map(.x = languages, .f = function(lang) {
+      nr_comments <- length(article$content[[lang]]$text)
+      data.frame(language = lang, nr_comments = nr_comments)
+    }) %>% 
+      bind_rows()
+    
+    data.frame(title = article$title,
+               link = article$link,
+               pubDate = str_extract(string = article$pubDate, 
+                                     pattern = "[0-9]+ \\w+ \\d+"),
+               category = article$category,
+               description = article$description,
+               creator = article$`dc:creator`) %>% 
+      cbind(., comments)
+  }) %>% 
+  bind_rows() %>% 
+  as_tibble() %>% 
+  mutate(pubDate = parse_date_time(x = pubDate, orders = "%d %b %Y", tz = "GMT"))
+  
+```
+
+### Exploratory data analysis
+```{r}
+articles_summaries %>% 
+  group_by(language) %>% 
+  summarise(`Number of articles` = sum(nr_comments != 0),
+            `Total comments` = sum(nr_comments),
+            `Avg number of comments per article` = round(`Total comments`/`Number of articles`, 1)) %>% 
+  arrange(-`Avg number of comments per article`) %>% 
+  kable()
+
+```
+
+### Plots
+```{r fig.height = 7, fig.width = 10}
+articles_summaries %>% 
+  mutate(category = fct_lump(f = category, n = 4)) %>%
+  ggplot(aes(x = language, y = nr_comments)) +
+  geom_boxplot(alpha = 0.3) +
+  geom_quasirandom(alpha = 0.5) + 
+  facet_wrap(~ category, ncol = 3) +
+  coord_flip()
+
+articles_summaries %>% 
+  mutate(category = fct_lump(f = category, n = 4)) %>%
+  group_by(pubDate, category) %>%
+  summarise(sum_comments = sum(nr_comments)) %>% 
+  ggplot(aes(x = pubDate, y = sum_comments)) +
+  geom_line() +
+  facet_wrap(~ category)
 ```
