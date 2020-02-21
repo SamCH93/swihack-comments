@@ -104,17 +104,8 @@ articles_summaries %>%
 
 ## wordcloud plot
 wordcloud_languages <- c("German", "English")
-comment_words <- map(wordcloud_languages, function(lang) {
-  comments <- map(articles, function(article) {
-    unlist(article$content[["English"]]$comments)
-  }) %>% 
-    unlist() %>% 
-    strsplit(split = " ") %>% 
-    unlist()
-    
-})
-
 for (lang in wordcloud_languages) {
+  print(lang)
   map(articles, function(article) {
     article$content[[lang]]$comments
   }) %>% 
@@ -126,7 +117,5 @@ for (lang in wordcloud_languages) {
                      rotation = 0.25, max_size = 8,
                      color = RColorBrewer::brewer.pal(4, "Dark2"))  
 }
-
-
 ```
 
