@@ -1,5 +1,6 @@
 import requests
 import xmltodict
+import os
 import re
 from tqdm import tqdm
 from bs4 import BeautifulSoup
@@ -14,10 +15,12 @@ def parse_article(link):
     text = [x.text for x in article_body.findChildren("p", recursive=False)]
     translator_node = soup.find('div', {"class": "article-body"}).findChildren("address")
     translator = translator_node[0].text if translator_node else ""
-    comment_node = soup.find('div', {"class": "user-comment"})
+    comment_node = soup.find_all('div', {"class": "user-comment"})
     comments = [x.text for x in comment_node] if comment_node else []
+    category_node = soup.find_all("span", {"itemprop": "keywords"})
+    category = [x.text for x in category_node] if category_node else []
 
-    return text, translator, comments
+    return text, translator, comments, category
 
 
 def parse_comments(id, lang):
@@ -53,9 +56,16 @@ article_id_matcher = re.compile("https?://www.swissinfo.ch/.*?/(?P<articleid>\d+
 with open("article_list.json", 'r', encoding="UTF-8") as articles_json:
     articles = json.load(articles_json)
 
-output_articles = []
+if os.path.exists("articles.json"):
+    with open("articles.json", "r", encoding="UTF-8") as articles_json:
+        output_articles = json.load(articles_json)
+else:
+    output_articles = []
 
-for article in tqdm(articles[::-1]):
+for idx, article in enumerate(tqdm(articles[::-1])):
+
+    if idx < len(output_articles):
+        continue
 
     article_cid_match = article_cid_matcher.match(article["link"])
 
@@ -83,7 +93,7 @@ for article in tqdm(articles[::-1]):
         if not parsed_article:
             continue
 
-        text, translator, comments = parsed_article
+        text, translator, comments, category = parsed_article
 
         article['content'][language] = {}
         if language == "English":
@@ -94,6 +104,9 @@ for article in tqdm(articles[::-1]):
         article['content'][language]['text'] = text
         article['content'][language]['translator'] = translator
         article['content'][language]['comments'] = parse_comments(article['content'][language]['id'], language)
+        article['content'][language]['cateogry'] = category
+
+    article['category'] = article['content']['English']['cateogry']
 
     output_articles.append(article)
 
