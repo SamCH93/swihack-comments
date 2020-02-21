@@ -1,0 +1,26 @@
+---
+title: 'Multilingual comments comparison'
+author: 'Samuel Pawel'
+date: '21.02.2020'
+output: html_document
+---
+
+<!-- knitrs setup -->
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, 
+                      cache = FALSE,
+                      warning = FALSE, 
+                      message = FALSE, 
+                      fig.height = 5, 
+                      fig.align = "center")
+```
+
+
+```{r}
+library(tidyverse)
+library(quanteda)
+library(readtext)
+library(lubridate)
+library(stringr)
+
+```
