@@ -1,6 +1,6 @@
 ---
 title: 'Multilingual comments comparison - Analysis'
-author: 'Samuel Pawel'
+author: 'Damian Murezzan, Hubert Zumwald, Samuel Pawel, V'
 date: '21.02.2020'
 output: html_document
 ---
@@ -24,6 +24,7 @@ library(lubridate)
 library(stringr)
 library(jsonlite)
 library(ggbeeswarm)
+library(ggridges)
 library(quanteda)
 ```
 
@@ -74,21 +75,46 @@ articles_summaries %>%
   arrange(-`Avg number of comments per article`) %>% 
   kable()
 
+articles_summaries %>% 
+  filter(authortag != "") %>% 
+  group_by(authortag) %>% 
+  summarise(`Number of articles` = sum(article_exists),
+            `Total comments` = sum(nr_comments),
+            `Avg number of comments per article` = round(`Total comments`/`Number of articles`, 1)) %>% 
+  arrange(-`Avg number of comments per article`) %>% 
+  kable()
 ```
 
 ### Plots
 ```{r fig.height = 7, fig.width = 10}
+## distribution of comments per language
+articles_summaries %>% 
+  filter(article_exists == TRUE) %>% 
+  ggplot(aes(x = language, y = nr_comments, color = language)) +
+  geom_boxplot(alpha = 0.1) +
+  geom_quasirandom(alpha = 0.7) + 
+  guides(color = FALSE) + 
+  labs(x = "Language", y = "Number of comments") +
+  coord_flip()
+
+## distribution of comments per language with ridge plot
+articles_summaries %>% 
+  filter(article_exists == TRUE) %>% 
+  ggplot(aes(x = nr_comments, y = language, group = language, fill = language)) +
+  geom_density_ridges2(rel_min_height = 0.001, scale = 0.95, alpha = 0.6) +
+  guides(fill = FALSE) +
+  labs(y = "Language", y = "Density of number of comments") 
+
 ## distribution of comments per language and category
 articles_summaries %>% 
   filter(article_exists == TRUE) %>% 
   mutate(category = fct_lump(f = category, n = 5)) %>%
-  ggplot(aes(x = language, y = nr_comments, 
-             color = language)) +
+  ggplot(aes(x = category, y = nr_comments, color = category)) +
   geom_boxplot(alpha = 0.1) +
-  geom_quasirandom(alpha = 0.7) + 
+  geom_quasirandom(alpha = 0.7) +
   guides(color = FALSE) + 
-  facet_wrap(~ category, ncol = 3) +
-  labs(x = "Language", y = "Number of comments") +
+  facet_wrap(~ language, ncol = 3, scales = "free") +
+  labs(x = "Category", y = "Number of comments") +
   coord_flip()
 
 ## time-series plot per category
