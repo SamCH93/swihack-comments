@@ -24,6 +24,7 @@ library(lubridate)
 library(stringr)
 library(jsonlite)
 library(ggbeeswarm)
+library(quanteda)
 ```
 
 
@@ -33,6 +34,7 @@ articles <- read_json("../articles.json")
 languages <- c("German", "Spanish", "French", "Italian", "Japanese",
                "Portuguese", "Chinese", "English", "Russian", "Arabic")
 
+## aggregating article features
 articles_summaries <- articles %>% 
   map(.f = function(article) {
     
@@ -51,6 +53,7 @@ articles_summaries <- articles %>%
                subject = article$SUBJECT,
                authortag = article$AUTHORSTAG,
                author = article$AUTHORS,
+               # we assume first mentioned category is most important category
                category = article$category[[1]][[1]]) %>% 
       cbind(., comments)
   }) %>% 
@@ -60,8 +63,9 @@ articles_summaries <- articles %>%
          created = parse_date_time(created, orders = "%d.%m.%Y %H:%M", tz = "CET"))
 ```
 
-### Exploratory data analysis
+### Descriptive statistics
 ```{r}
+## computing some summary statistics
 articles_summaries %>% 
   group_by(language) %>% 
   summarise(`Number of articles` = sum(article_exists),
@@ -74,6 +78,7 @@ articles_summaries %>%
 
 ### Plots
 ```{r fig.height = 7, fig.width = 10}
+## distribution of comments per language and category
 articles_summaries %>% 
   filter(article_exists == TRUE) %>% 
   mutate(category = fct_lump(f = category, n = 5)) %>%
@@ -83,8 +88,10 @@ articles_summaries %>%
   geom_quasirandom(alpha = 0.7) + 
   guides(color = FALSE) + 
   facet_wrap(~ category, ncol = 3) +
+  labs(x = "Language", y = "Number of comments") +
   coord_flip()
 
+## time-series plot per category
 articles_summaries %>% 
   mutate(category = fct_lump(f = category, n = 4)) %>%
   mutate(date = date(published)) %>% 
@@ -92,6 +99,23 @@ articles_summaries %>%
   summarise(sum_comments = sum(nr_comments)) %>%
   ggplot(aes(x = date, y = sum_comments)) +
   geom_line() +
-  facet_wrap(~ category)
+  facet_wrap(~ category) +
+  labs(x = "Date", y = "Total number of comments")
+
+## wordcloud plot
+wordcloud_languages <- c("German", "English")
+for (lang in wordcloud_languages) {
+  print(lang)
+  map(articles, function(article) {
+    article$content[[lang]]$comments
+  }) %>% 
+  unlist() %>% 
+  corpus() %>% 
+  dfm(remove = c(stopwords(ifelse(lang == "English", "en", "de")), "dass"),
+      remove_punct = TRUE, remove_numbers = TRUE) %>% 
+  textplot_wordcloud(min_count = 6, random_order = FALSE,
+                     rotation = 0.25, max_size = 8,
+                     color = RColorBrewer::brewer.pal(4, "Dark2"))  
+}
 ```
 
