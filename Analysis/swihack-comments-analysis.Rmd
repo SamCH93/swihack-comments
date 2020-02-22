@@ -1,6 +1,6 @@
 ---
 title: 'Multilingual comments comparison - Analysis'
-author: 'Damian Murezzan, Hubert Zumwald, Samuel Pawel, V'
+author: 'Damian Murezzan, Hubert Zumwald, Samuel Pawel, Valeria Baldassarre'
 date: '21.02.2020'
 output: html_document
 ---
@@ -8,7 +8,7 @@ output: html_document
 <!-- setup -->
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, 
-                      cache = FALSE,
+                      cache = TRUE,
                       warning = FALSE, 
                       message = FALSE, 
                       fig.height = 5, 
@@ -31,7 +31,8 @@ library(quanteda)
 
 ### Data
 ```{r}
-articles <- read_json("../articles.json")
+unzip(zipfile = "../articles.zip")
+articles <- read_json("articles.json")
 languages <- c("German", "Spanish", "French", "Italian", "Japanese",
                "Portuguese", "Chinese", "English", "Russian", "Arabic")
 
@@ -76,11 +77,20 @@ articles_summaries %>%
   kable()
 
 articles_summaries %>% 
+  group_by(category) %>% 
+  summarise(`Number of articles` = sum(article_exists),
+            `Total comments` = sum(nr_comments),
+            `Avg number of comments per article` = round(`Total comments`/`Number of articles`, 1)) %>% 
+  arrange(-`Avg number of comments per article`) %>% 
+  kable()
+
+articles_summaries %>% 
   filter(authortag != "") %>% 
   group_by(authortag) %>% 
   summarise(`Number of articles` = sum(article_exists),
             `Total comments` = sum(nr_comments),
             `Avg number of comments per article` = round(`Total comments`/`Number of articles`, 1)) %>% 
+  filter(`Number of articles` >= 15) %>% 
   arrange(-`Avg number of comments per article`) %>% 
   kable()
 ```
@@ -124,7 +134,9 @@ articles_summaries %>%
   group_by(date, category) %>%
   summarise(sum_comments = sum(nr_comments)) %>%
   ggplot(aes(x = date, y = sum_comments)) +
-  geom_line() +
+  geom_bar(stat = "identity") +
+  geom_smooth(alpha = 0.5) +
+  scale_y_sqrt(breaks = c(0, 2, 10, 25, 50, 100, 150, 200)) +
   facet_wrap(~ category) +
   labs(x = "Date", y = "Total number of comments")
 
@@ -145,3 +157,42 @@ for (lang in wordcloud_languages) {
 }
 ```
 
+### Look at outliers
+```{r}
+articles_summaries %>% 
+  filter(nr_comments >= 40) %>% 
+  select(title, nr_comments, language) %>% 
+  rename(Title = title,
+         Comments = nr_comments,
+         Language = language) %>% 
+  arrange(-Comments)
+```
+
+### Build regression model
+```{r}
+articles_summaries_modeldf <- articles_summaries %>% 
+  filter(article_exists == TRUE) %>% 
+  mutate(language = relevel(factor(language), ref = "German"),
+         category = relevel(factor(category), ref = "Politics"))
+
+## this is a misspecified model, we need to account for similarity between
+## observations that come from same articles by using e.g. random effects!
+## However, no time anymore for this
+# library(lme4)
+# fit1 <- glmer.nb(nr_comments ~ language + category + (1|title),
+#                  verbose = 2, data = articles_summaries_modeldf)
+fit1 <- glm(nr_comments ~ language + category, family = "quasipoisson",
+            data = articles_summaries_modeldf)
+coefs <- data.frame(summary(fit1)$coefficients)
+data.frame(variable = rownames(coefs),
+           RR = exp(coefs$Estimate),
+           lower = exp(coefs$Estimate - qnorm(0.975)*coefs$Std..Error),
+           upper = exp(coefs$Estimate + qnorm(0.975)*coefs$Std..Error)) %>%
+  filter(variable != "(Intercept)") %>% 
+  ggplot(aes(x = variable, y = RR)) +
+  geom_pointrange(aes(ymin = lower, ymax = upper)) +
+  geom_hline(yintercept = 1, lty = 2, alpha = 0.5) + 
+  labs(x = "Variable", y = "Relative increase in number of comments",
+       title = "(slightly missspecified) model with reference: German, Culture") + 
+  coord_flip()
+```
