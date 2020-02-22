@@ -173,7 +173,7 @@ articles_summaries %>%
 articles_summaries_modeldf <- articles_summaries %>% 
   filter(article_exists == TRUE) %>% 
   mutate(language = relevel(factor(language), ref = "German"),
-         category = relevel(factor(category), ref = "Politics"))
+         category = relevel(factor(category), ref = "Culture"))
 
 ## this is a misspecified model, we need to account for similarity between
 ## observations that come from same articles by using e.g. random effects!
@@ -196,3 +196,20 @@ data.frame(variable = rownames(coefs),
        title = "(slightly missspecified) model with reference: German, Culture") + 
   coord_flip()
 ```
+
+
+## Data analysis - Word vec embeddings
+
+  <span> 
+    <img src="../Embeddings/DE_articles.png" width="385">  </img>
+  </span>
+  <span> 
+    <img src="../Embeddings/DE_comments.png" width="385"> </img>
+  </span>
+  
+  <span> 
+      <img src="../Embeddings/EN_articles.png" width="385">  </img>
+    </span>
+    <span> 
+      <img src="../Embeddings/EN_comments.png" width="385"> </img>
+  </span>
