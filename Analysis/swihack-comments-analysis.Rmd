@@ -1,5 +1,6 @@
 ---
 title: 'Multilingual comments comparison - Analysis'
+subtitle: "https://github.com/SamCH93/swihack-comments"
 author: 'Damian Murezzan, Hubert Zumwald, Samuel Pawel, Valeria Baldassarre'
 date: '21.02.2020'
 output: html_document
@@ -141,15 +142,25 @@ articles_summaries %>%
   labs(x = "Date", y = "Total number of comments")
 
 ## wordcloud plot
-wordcloud_languages <- c("German", "English")
+wordcloud_languages <- c("German", "English", "Italian", "French",
+                         "Spanish", "Portuguese", "Russian",
+                         "Arabic")
 for (lang in wordcloud_languages) {
   print(lang)
+  
   map(articles, function(article) {
     article$content[[lang]]$comments
   }) %>% 
   unlist() %>% 
   corpus() %>% 
-  dfm(remove = c(stopwords(ifelse(lang == "English", "en", "de")), "dass"),
+  dfm(remove = c(stopwords(case_when(lang == "English" ~ "en", 
+                                   lang == "German" ~ "de",
+                                   lang == "Italian" ~ "it",
+                                   lang == "French" ~ "fr",
+                                   lang == "Spanish" ~ "es",
+                                   lang == "Portuguese" ~ "por",
+                                   lang == "Arabic" ~ "ar", 
+                                   lang == "Russian" ~ "ru")), "dass"),
       remove_punct = TRUE, remove_numbers = TRUE) %>% 
   textplot_wordcloud(min_count = 6, random_order = FALSE,
                      rotation = 0.25, max_size = 8,
